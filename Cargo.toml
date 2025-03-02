@@ -1,0 +1,11 @@
+[package]
+name = "styled-output"
+version = "0.0.1-dev"
+authors = ["Martin Dickopp"]
+edition = "2024"
+rust-version = "1.85"
+readme = "README.md"
+homepage = "https://github.com/mdickopp/styled-output"
+repository = "https://github.com/mdickopp/styled-output"
+license = "MIT OR Apache-2.0"
+publish = false
