@@ -9,3 +9,6 @@ homepage = "https://github.com/mdickopp/styled-output"
 repository = "https://github.com/mdickopp/styled-output"
 license = "MIT OR Apache-2.0"
 publish = false
+
+[dependencies]
+terminal_size = "0.4.1"
