@@ -93,7 +93,7 @@ impl<S: private::Stream> StreamInfo<S> {
     /// # Example
     ///
     /// ```
-    /// use styled_output::streams::STDOUT_INFO;
+    /// use styled_output::stream_info::STDOUT_INFO;
     ///
     /// if STDOUT_INFO.use_color() {
     ///     println!("Should use color on standard output.");
@@ -133,7 +133,7 @@ impl<S: private::Stream> StreamInfo<S> {
     /// # Example
     ///
     /// ```
-    /// use styled_output::streams::{ColorMode, STDOUT_INFO};
+    /// use styled_output::stream_info::{ColorMode, STDOUT_INFO};
     ///
     /// STDOUT_INFO.set_color_mode(ColorMode::Never);
     /// assert_eq!(STDOUT_INFO.use_color(), false);
@@ -156,7 +156,7 @@ impl<S: private::Stream> StreamInfo<S> {
     /// # Example
     ///
     /// ```
-    /// use styled_output::streams::STDOUT_INFO;
+    /// use styled_output::stream_info::STDOUT_INFO;
     ///
     /// println!("The line width for standard output is {}.", STDOUT_INFO.line_width());
     /// ```
