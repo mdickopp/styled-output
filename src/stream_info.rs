@@ -22,15 +22,15 @@ pub const DEFAULT_LINE_WIDTH: u16 = 80;
 
 /// Information about standard output.
 ///
-/// Use this static [`StreamInfo`] instance to query information about the standard output stream or
-/// set its color mode.
+/// Use this [`StreamInfo`] instance to query information about the standard output stream or set
+/// its color mode.
 pub static STDOUT_INFO: StreamInfo<private::TerminalSizeStdout> =
     StreamInfo::new(private::TerminalSizeStdout);
 
 /// Information about standard error.
 ///
-/// Use this static [`StreamInfo`] instance to query information about the standard error stream or
-/// set its color mode.
+/// Use this [`StreamInfo`] instance to query information about the standard error stream or set its
+/// color mode.
 pub static STDERR_INFO: StreamInfo<private::TerminalSizeStderr> =
     StreamInfo::new(private::TerminalSizeStderr);
 
@@ -246,7 +246,7 @@ mod private {
     }
 }
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(all(any(test, doc), target_os = "linux"))]
 mod tests {
     use std::{
         env,
@@ -268,10 +268,12 @@ mod tests {
         }
     }
 
-    // Sets or removes the environment variable `NO_COLOR`.
-    //
-    // SAFETY: Callers must retain the returned `MutexGuard` object as long as environment variables
-    // may be accessed (read or modified).
+    /// Sets or removes the environment variable `NO_COLOR`.
+    ///
+    /// # Safety
+    ///
+    /// Callers must retain the returned [`MutexGuard`] object as long as environment variables may
+    /// be accessed (read or modified).
     unsafe fn set_env_no_color(value: Option<&'static str>) -> MutexGuard<'static, ()> {
         static ENV_MUTEX: Mutex<()> = Mutex::new(());
         let env_guard = ENV_MUTEX.lock().unwrap_or_else(|e| {
@@ -291,8 +293,9 @@ mod tests {
         env_guard
     }
 
-    // Opens a terminal and sets its width to the specified value. Returns a tuple containing the
-    // master and slave file descriptors, respectively, or an error.
+    /// Opens a terminal and sets its width to the specified value.
+    ///
+    /// Returns a tuple containing the master and slave file descriptors, respectively, or an error.
     fn open_term(width: u16) -> Result<(OwnedFd, OwnedFd)> {
         let mut master_raw_fd: RawFd = -1;
         let mut slave_raw_fd: RawFd = -1;
