@@ -193,15 +193,19 @@ impl<S: private::Stream> StreamInfo<S> {
 
 /// Private module containing implementation details.
 mod private {
-    use std::{
-        io::{self, Stderr, Stdout},
-        os::fd::AsFd,
-    };
+    use std::io::{self, Stderr, Stdout};
+    #[cfg(not(windows))]
+    use std::os::fd::AsFd;
+    #[cfg(windows)]
+    use std::os::windows::io::AsHandle;
 
     /// Provides access to a stream object.
     pub trait Stream {
         /// The stream type.
+        #[cfg(not(windows))]
         type Fd: AsFd;
+        #[cfg(windows)]
+        type Fd: AsHandle;
 
         /// Returns the stream object.
         #[must_use]
