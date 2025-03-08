@@ -193,22 +193,15 @@ impl<T: private::TerminalSize> StreamInfo<T> {
 
 /// Private module containing implementation details.
 mod private {
-    use std::io::{self, Stderr, Stdout};
-    #[cfg(unix)]
-    use std::os::fd::AsFd;
-    #[cfg(windows)]
-    use std::os::windows::io::AsHandle;
+    #[cfg(any(unix, windows))]
+    use std::io;
 
-    use terminal_size::{Height, Width, terminal_size_of};
+    #[cfg(any(unix, windows))]
+    use terminal_size;
+    use terminal_size::{Height, Width};
 
     /// Returns the terminal size of a stream.
     pub trait TerminalSize {
-        /// The stream type.
-        #[cfg(unix)]
-        type Stream: AsFd;
-        #[cfg(windows)]
-        type Stream: AsHandle;
-
         /// Returns the terminal size of the stream.
         #[must_use]
         fn terminal_size(&self) -> Option<(Width, Height)>;
@@ -219,11 +212,9 @@ mod private {
 
     #[cfg(any(unix, windows))]
     impl TerminalSize for TerminalSizeStdout {
-        type Stream = Stdout;
-
         #[inline]
         fn terminal_size(&self) -> Option<(Width, Height)> {
-            terminal_size_of(io::stdout())
+            terminal_size::terminal_size_of(io::stdout())
         }
     }
 
@@ -240,11 +231,9 @@ mod private {
 
     #[cfg(any(unix, windows))]
     impl TerminalSize for TerminalSizeStderr {
-        type Stream = Stderr;
-
         #[inline]
         fn terminal_size(&self) -> Option<(Width, Height)> {
-            terminal_size_of(io::stderr())
+            terminal_size::terminal_size_of(io::stderr())
         }
     }
 
@@ -273,8 +262,6 @@ mod tests {
     use super::*;
 
     impl<'fd> private::TerminalSize for BorrowedFd<'fd> {
-        type Stream = BorrowedFd<'fd>;
-
         #[inline]
         fn terminal_size(&self) -> Option<(Width, terminal_size::Height)> {
             terminal_size_of(self)
