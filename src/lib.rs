@@ -2,4 +2,4 @@
 
 #![warn(missing_docs, clippy::missing_docs_in_private_items)]
 
-pub mod streams;
+pub mod stream_info;

@@ -47,6 +47,7 @@ dependencies = [
 name = "styled-output"
 version = "0.0.1-dev"
 dependencies = [
+ "libc",
  "terminal_size",
 ]
 
