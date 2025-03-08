@@ -24,29 +24,31 @@ pub const DEFAULT_LINE_WIDTH: u16 = 80;
 ///
 /// Use this static [`StreamInfo`] instance to query information about the standard output stream or
 /// set its color mode.
-pub static STDOUT_INFO: StreamInfo<private::StdoutStream> = StreamInfo::new(private::StdoutStream);
+pub static STDOUT_INFO: StreamInfo<private::TerminalSizeStdout> =
+    StreamInfo::new(private::TerminalSizeStdout);
 
 /// Information about standard error.
 ///
 /// Use this static [`StreamInfo`] instance to query information about the standard error stream or
 /// set its color mode.
-pub static STDERR_INFO: StreamInfo<private::StderrStream> = StreamInfo::new(private::StderrStream);
+pub static STDERR_INFO: StreamInfo<private::TerminalSizeStderr> =
+    StreamInfo::new(private::TerminalSizeStderr);
 
 /// Whether to use colors and other styling.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorMode {
     /// Determine automatically whether to use colors and other styling.
     ///
-    /// Colors and styling are used if the output stream refers to a terminal, unless the
-    /// environment variable `NO_COLOR` is set to a non-empty value.
+    /// Colors and styling are used if the stream refers to a terminal, unless the environment
+    /// variable `NO_COLOR` is set to a non-empty value.
     ///
     /// See [`StreamInfo::use_color`] for the exact rules that determine color usage.
     Auto,
-    /// Do not use colors and other styling, irrespective of whether the output stream refers to a
-    /// terminal or whether the environment variable `NO_COLOR` is set.
-    Never,
-    /// Use colors and other styling, irrespective of whether the output stream refers to a terminal
+    /// Do not use colors and other styling, irrespective of whether the stream refers to a terminal
     /// or whether the environment variable `NO_COLOR` is set.
+    Never,
+    /// Use colors and other styling, irrespective of whether the stream refers to a terminal or
+    /// whether the environment variable `NO_COLOR` is set.
     Always,
 }
 
@@ -54,9 +56,9 @@ pub enum ColorMode {
 ///
 /// Two static instances of this structure are available, [`STDOUT_INFO`] and [`STDERR_INFO`],
 /// providing information about the standard output and standard error streams, respectively.
-pub struct StreamInfo<S: private::Stream> {
-    /// Access to the stream object.
-    stream: S,
+pub struct StreamInfo<T: private::TerminalSize> {
+    /// Returns the terminal size of the stream.
+    terminal_size: T,
     /// Whether to use colors and other styling.
     ///
     /// The value corresponds to the discriminant value of [`ColorMode`] cast to `u8`.
@@ -68,11 +70,11 @@ pub struct StreamInfo<S: private::Stream> {
     raw_line_width: AtomicI32,
 }
 
-impl<S: private::Stream> StreamInfo<S> {
+impl<T: private::TerminalSize> StreamInfo<T> {
     /// Returns an object that provides information about a stream.
-    const fn new(stream: S) -> Self {
+    const fn new(terminal_size: T) -> Self {
         Self {
-            stream,
+            terminal_size,
             raw_color_mode: AtomicU8::new(ColorMode::Auto as isize as u8),
             raw_line_width: AtomicI32::new(RAW_LINE_WIDTH_UNKNOWN),
         }
@@ -87,7 +89,7 @@ impl<S: private::Stream> StreamInfo<S> {
     ///   [`set_color_mode`], `true` is returned.
     /// - Otherwise, if the environment variable `NO_COLOR` is set to a non-empty value, `false` is
     ///   returned.
-    /// - Otherwise, if the output stream refers to a terminal, `true` is returned.
+    /// - Otherwise, if the stream refers to a terminal, `true` is returned.
     /// - Otherwise, `false` is returned.
     ///
     /// # Example
@@ -124,8 +126,8 @@ impl<S: private::Stream> StreamInfo<S> {
     /// Sets whether colors and other styling should be used when writing to the stream.
     ///
     /// If the color mode is set to [`ColorMode::Auto`] (which is the default if it is not set
-    /// explicitly with this method.), the usage of colors depends on whether the output stream
-    /// refers to a terminal and whether the environment variable `NO_COLOR` is set. Otherwise,
+    /// explicitly with this method.), the usage of colors depends on whether the stream refers to a
+    /// terminal and whether the environment variable `NO_COLOR` is set. Otherwise,
     /// [`ColorMode::Never`] disables color usage, and [`ColorMode::Always`] enables it.
     ///
     /// See [`use_color`] for the exact rules that determine color usage.
@@ -150,8 +152,8 @@ impl<S: private::Stream> StreamInfo<S> {
 
     /// Returns the line width that should be used for word wrapping when writing to the stream.
     ///
-    /// Returns the terminal width if the output stream refers to a terminal, or a default line
-    /// width ([`DEFAULT_LINE_WIDTH`]) otherwise.
+    /// Returns the terminal width if the stream refers to a terminal, or a default line width
+    /// ([`DEFAULT_LINE_WIDTH`]) otherwise.
     ///
     /// # Example
     ///
@@ -170,7 +172,7 @@ impl<S: private::Stream> StreamInfo<S> {
         }
     }
 
-    /// Returns the raw line width of the output stream.
+    /// Returns the raw line width of the stream.
     ///
     /// The raw line width is either the line width (which has type `u16`) cast to `i32`,
     /// [`RAW_LINE_WIDTH_UNKNOWN`], or [`RAW_LINE_WIDTH_NONE`].
@@ -178,9 +180,7 @@ impl<S: private::Stream> StreamInfo<S> {
     fn get_raw_line_width(&self) -> i32 {
         let mut line_width = self.raw_line_width.load(Ordering::Relaxed);
         if line_width == RAW_LINE_WIDTH_UNKNOWN {
-            line_width = if let Some((Width(width), _)) =
-                terminal_size::terminal_size_of(self.stream.get())
-            {
+            line_width = if let Some((Width(width), _)) = self.terminal_size.terminal_size() {
                 width as i32
             } else {
                 RAW_LINE_WIDTH_NONE
@@ -194,45 +194,65 @@ impl<S: private::Stream> StreamInfo<S> {
 /// Private module containing implementation details.
 mod private {
     use std::io::{self, Stderr, Stdout};
-    #[cfg(not(windows))]
+    #[cfg(unix)]
     use std::os::fd::AsFd;
     #[cfg(windows)]
     use std::os::windows::io::AsHandle;
 
-    /// Provides access to a stream object.
-    pub trait Stream {
-        /// The stream type.
-        #[cfg(not(windows))]
-        type Fd: AsFd;
-        #[cfg(windows)]
-        type Fd: AsHandle;
+    use terminal_size::{Height, Width, terminal_size_of};
 
-        /// Returns the stream object.
+    /// Returns the terminal size of a stream.
+    pub trait TerminalSize {
+        /// The stream type.
+        #[cfg(unix)]
+        type Stream: AsFd;
+        #[cfg(windows)]
+        type Stream: AsHandle;
+
+        /// Returns the terminal size of the stream.
         #[must_use]
-        fn get(&self) -> Self::Fd;
+        fn terminal_size(&self) -> Option<(Width, Height)>;
     }
 
-    /// Provides access to the standard output stream.
-    pub struct StdoutStream;
+    /// Returns the terminal size of the standard output stream.
+    pub struct TerminalSizeStdout;
 
-    impl Stream for StdoutStream {
-        type Fd = Stdout;
+    #[cfg(any(unix, windows))]
+    impl TerminalSize for TerminalSizeStdout {
+        type Stream = Stdout;
 
         #[inline]
-        fn get(&self) -> Stdout {
-            io::stdout()
+        fn terminal_size(&self) -> Option<(Width, Height)> {
+            terminal_size_of(io::stdout())
         }
     }
 
-    /// Provides access to the standard error stream.
-    pub struct StderrStream;
+    #[cfg(not(any(unix, windows)))]
+    impl TerminalSize for TerminalSizeStdout {
+        #[inline]
+        fn terminal_size(&self) -> Option<(Width, Height)> {
+            None
+        }
+    }
 
-    impl Stream for StderrStream {
-        type Fd = Stderr;
+    /// Returns the terminal size of the standard error stream.
+    pub struct TerminalSizeStderr;
+
+    #[cfg(any(unix, windows))]
+    impl TerminalSize for TerminalSizeStderr {
+        type Stream = Stderr;
 
         #[inline]
-        fn get(&self) -> Stderr {
-            io::stderr()
+        fn terminal_size(&self) -> Option<(Width, Height)> {
+            terminal_size_of(io::stderr())
+        }
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    impl TerminalSize for TerminalSizeStderr {
+        #[inline]
+        fn terminal_size(&self) -> Option<(Width, Height)> {
+            None
         }
     }
 }
@@ -248,14 +268,16 @@ mod tests {
         sync::{Mutex, MutexGuard},
     };
 
+    use terminal_size::terminal_size_of;
+
     use super::*;
 
-    impl<'fd> private::Stream for BorrowedFd<'fd> {
-        type Fd = BorrowedFd<'fd>;
+    impl<'fd> private::TerminalSize for BorrowedFd<'fd> {
+        type Stream = BorrowedFd<'fd>;
 
         #[inline]
-        fn get(&self) -> Self::Fd {
-            *self
+        fn terminal_size(&self) -> Option<(Width, terminal_size::Height)> {
+            terminal_size_of(self)
         }
     }
 
