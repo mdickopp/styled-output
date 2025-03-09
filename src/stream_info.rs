@@ -2,7 +2,7 @@
 
 use std::{
     env,
-    sync::atomic::{AtomicI32, AtomicU8, Ordering},
+    sync::atomic::{AtomicI8, AtomicI32, AtomicU8, Ordering},
 };
 
 use terminal_size::Width;
@@ -110,10 +110,7 @@ impl<T: private::TerminalSize> StreamInfo<T> {
     pub fn use_color(&self) -> bool {
         let mut color_mode = self.raw_color_mode.load(Ordering::Acquire);
         if color_mode == ColorMode::Auto as isize as u8 {
-            // TODO: Cache value of NO_COLOR
-            color_mode = if env::var_os("NO_COLOR").is_none_or(|value| value.is_empty())
-                && self.get_raw_line_width() != RAW_LINE_WIDTH_NONE
-            {
+            color_mode = if !env_no_color() && self.get_raw_line_width() != RAW_LINE_WIDTH_NONE {
                 ColorMode::Always as isize as u8
             } else {
                 ColorMode::Never as isize as u8
@@ -178,17 +175,35 @@ impl<T: private::TerminalSize> StreamInfo<T> {
     /// [`RAW_LINE_WIDTH_UNKNOWN`], or [`RAW_LINE_WIDTH_NONE`].
     #[must_use]
     fn get_raw_line_width(&self) -> i32 {
-        let mut line_width = self.raw_line_width.load(Ordering::Relaxed);
-        if line_width == RAW_LINE_WIDTH_UNKNOWN {
-            line_width = if let Some((Width(width), _)) = self.terminal_size.terminal_size() {
+        let mut raw_line_width = self.raw_line_width.load(Ordering::Relaxed);
+        if raw_line_width == RAW_LINE_WIDTH_UNKNOWN {
+            raw_line_width = if let Some((Width(width), _)) = self.terminal_size.terminal_size() {
                 width as i32
             } else {
                 RAW_LINE_WIDTH_NONE
             };
-            self.raw_line_width.store(line_width, Ordering::Relaxed);
+            self.raw_line_width.store(raw_line_width, Ordering::Relaxed);
         }
-        line_width
+        raw_line_width
     }
+}
+
+/// Value indicating that the value of [`ENV_NO_COLOR`] has not yet been determined.
+const ENV_NO_COLOR_UNKNOWN: i8 = -1;
+
+/// Flag whether the `NO_COLOR` environment variable is set to a non-empty value.
+///
+/// The value is either a `bool` cast to `i8`, or [`ENV_NO_COLOR_UNKNOWN`].
+static ENV_NO_COLOR: AtomicI8 = AtomicI8::new(ENV_NO_COLOR_UNKNOWN);
+
+/// Returns whether the `NO_COLOR` environment variable is set to a non-empty value.
+fn env_no_color() -> bool {
+    let mut env_no_color = ENV_NO_COLOR.load(Ordering::Relaxed);
+    if env_no_color == ENV_NO_COLOR_UNKNOWN {
+        env_no_color = !env::var_os("NO_COLOR").is_none_or(|value| value.is_empty()) as i8;
+        ENV_NO_COLOR.store(env_no_color, Ordering::Relaxed);
+    }
+    env_no_color != false as i8
 }
 
 /// Private module containing implementation details.
@@ -270,6 +285,9 @@ mod tests {
 
     /// Sets or removes the environment variable `NO_COLOR`.
     ///
+    /// Also resets the cached flag whether the environment variable is set to a non-empty value
+    /// ([`ENV_NO_COLOR`]).
+    ///
     /// # Safety
     ///
     /// Callers must retain the returned [`MutexGuard`] object as long as environment variables may
@@ -280,6 +298,7 @@ mod tests {
             ENV_MUTEX.clear_poison();
             e.into_inner()
         });
+        ENV_NO_COLOR.store(ENV_NO_COLOR_UNKNOWN, Ordering::SeqCst);
         match value {
             // SAFETY: Access to environment variables is protected by `env_guard`.
             Some(value) => unsafe {
