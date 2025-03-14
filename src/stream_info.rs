@@ -35,7 +35,7 @@ pub static STDERR_INFO: StreamInfo<private::TerminalSizeStderr> =
     StreamInfo::new(private::TerminalSizeStderr);
 
 /// Whether to use colors and other styling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ColorMode {
     /// Determine automatically whether to use colors and other styling.
     ///
@@ -43,6 +43,7 @@ pub enum ColorMode {
     /// variable `NO_COLOR` is set to a non-empty value.
     ///
     /// See [`StreamInfo::use_color`] for the exact rules that determine color usage.
+    #[default]
     Auto,
     /// Do not use colors and other styling, irrespective of whether the stream refers to a terminal
     /// or whether the environment variable `NO_COLOR` is set.
