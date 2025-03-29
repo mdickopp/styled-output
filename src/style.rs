@@ -107,7 +107,6 @@ impl Color {
 
 impl Style {
     /// Writes the ANSI control sequence that sets the current style.
-    #[allow(unused)]
     pub(crate) fn write_set_style<W>(&self, writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
@@ -150,7 +149,6 @@ impl Style {
     }
 
     /// Writes the ANSI control sequence that resets styling.
-    #[allow(unused)]
     pub(crate) fn write_reset_style<W>(writer: &mut W) -> io::Result<()>
     where
         W: ?Sized + Write,
