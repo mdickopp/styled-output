@@ -3,7 +3,7 @@ name = "styled-output"
 version = "0.0.1-dev"
 authors = ["Martin Dickopp"]
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.86"
 readme = "README.md"
 homepage = "https://github.com/mdickopp/styled-output"
 repository = "https://github.com/mdickopp/styled-output"
@@ -14,4 +14,4 @@ publish = false
 terminal_size = "0.4.2"
 
 [dev-dependencies]
-libc = "0.2.170"
+libc = "0.2.171"
