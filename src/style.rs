@@ -108,7 +108,10 @@ impl Color {
 impl Style {
     /// Writes the ANSI control sequence that sets the current style.
     #[allow(unused)]
-    fn write_set_style(&self, writer: &mut impl Write) -> io::Result<()> {
+    pub(crate) fn write_set_style<W>(&self, writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
         let mut have_written = false;
 
         if self.foreground_color != Color::Default {
@@ -148,18 +151,24 @@ impl Style {
 
     /// Writes the ANSI control sequence that resets styling.
     #[allow(unused)]
-    fn write_reset_style(writer: &mut impl Write) -> io::Result<()> {
+    pub(crate) fn write_reset_style<W>(writer: &mut W) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
         writer.write_all("\x1b[0m".as_bytes())
     }
 
     /// Writes an ANSI code preceded by the Control Sequence Introducer (CSI) or a semicolon,
     /// depending on whether a previous part of the ANSI control sequence has been written.
     #[inline]
-    fn write_ansi_code(
-        writer: &mut impl Write,
+    fn write_ansi_code<W>(
+        writer: &mut W,
         code: &'static [u8],
         have_written: &mut bool,
-    ) -> io::Result<()> {
+    ) -> io::Result<()>
+    where
+        W: ?Sized + Write,
+    {
         writer.write_all(if *have_written {
             ";".as_bytes()
         } else {
