@@ -9,12 +9,19 @@ pub enum Color {
     #[default]
     Default,
     /// Black.
+    ///
+    /// This color may be indistinguishable from [`DarkGray`](Self::DarkGray) in some terminal
+    /// emulators.
     Black,
     /// Red.
     Red,
     /// Green.
     Green,
     /// Yellow.
+    ///
+    /// The actual color is implemented inconsistently in different terminal emulators, and may be a
+    /// variant of brown, orange, yellow, olive, or greenish yellow. If it is important that the
+    /// color is actually yellow, [`LightYellow`](Self::LightYellow) should be preferred.
     Yellow,
     /// Blue.
     Blue,
@@ -23,8 +30,16 @@ pub enum Color {
     /// Cyan.
     Cyan,
     /// Gray.
-    Gray,
+    ///
+    /// A light gray color, lighter than [`DarkGray`](Self::DarkGray).
+    ///
+    /// This color may be indistinguishable from [`White`](Self::White) in some terminal emulators.
+    LightGray,
     /// Dark gray.
+    ///
+    /// A medium or dark gray color, darker than [`LightGray`](Self::LightGray).
+    ///
+    /// This color may be indistinguishable from [`Black`](Self::Black) in some terminal emulators.
     DarkGray,
     /// Light red.
     LightRed,
@@ -39,26 +54,14 @@ pub enum Color {
     /// Light cyan.
     LightCyan,
     /// White.
+    ///
+    /// This color may be indistinguishable from [`LightGray`](Self::LightGray) in some terminal
+    /// emulators.
     White,
 }
 
-/// Text color and style.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Style {
-    /// Foreground color.
-    pub foreground_color: Color,
-    /// Background color.
-    pub background_color: Color,
-    /// Bold text.
-    pub bold: bool,
-    /// Underlined text.
-    pub underlined: bool,
-    /// Blinking text.
-    pub blinking: bool,
-}
-
 impl Color {
-    /// Returns the ANSI color code if the color is used for the background.
+    /// Returns the ANSI color code if the color is used for the foreground.
     const fn foreground_code(&self) -> &'static [u8] {
         match self {
             Color::Default => "39".as_bytes(),
@@ -69,7 +72,7 @@ impl Color {
             Color::Blue => "34".as_bytes(),
             Color::Magena => "35".as_bytes(),
             Color::Cyan => "36".as_bytes(),
-            Color::Gray => "37".as_bytes(),
+            Color::LightGray => "37".as_bytes(),
             Color::DarkGray => "90".as_bytes(),
             Color::LightRed => "91".as_bytes(),
             Color::LightGreen => "92".as_bytes(),
@@ -92,7 +95,7 @@ impl Color {
             Color::Blue => "44".as_bytes(),
             Color::Magena => "45".as_bytes(),
             Color::Cyan => "46".as_bytes(),
-            Color::Gray => "47".as_bytes(),
+            Color::LightGray => "47".as_bytes(),
             Color::DarkGray => "100".as_bytes(),
             Color::LightRed => "101".as_bytes(),
             Color::LightGreen => "102".as_bytes(),
@@ -105,8 +108,23 @@ impl Color {
     }
 }
 
+/// Text color and style.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Style {
+    /// Foreground color.
+    pub foreground_color: Color,
+    /// Background color.
+    pub background_color: Color,
+    /// Bold text.
+    pub bold: bool,
+    /// Underlined text.
+    pub underlined: bool,
+    /// Blinking text.
+    pub blinking: bool,
+}
+
 impl Style {
-    /// Writes the ANSI control sequence that sets the current style.
+    /// Writes the ANSI control sequence that sets this color and style.
     #[allow(unused)]
     pub(crate) fn write_set_style<W>(&self, writer: &mut W) -> io::Result<()>
     where
@@ -149,7 +167,7 @@ impl Style {
         Ok(())
     }
 
-    /// Writes the ANSI control sequence that resets styling.
+    /// Writes the ANSI control sequence that resets coloring and styling.
     #[allow(unused)]
     pub(crate) fn write_reset_style<W>(writer: &mut W) -> io::Result<()>
     where
