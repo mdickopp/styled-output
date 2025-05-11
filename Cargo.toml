@@ -14,4 +14,4 @@ publish = false
 terminal_size = "0.4.2"
 
 [dev-dependencies]
-libc = "0.2.171"
+libc = "0.2.172"
