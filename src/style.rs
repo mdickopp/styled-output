@@ -60,6 +60,21 @@ pub enum Color {
     White,
 }
 
+/// Text color and style.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Style {
+    /// Foreground color.
+    pub foreground_color: Color,
+    /// Background color.
+    pub background_color: Color,
+    /// Bold text.
+    pub bold: bool,
+    /// Underlined text.
+    pub underlined: bool,
+    /// Blinking text.
+    pub blinking: bool,
+}
+
 impl Color {
     /// Returns the ANSI color code if the color is used for the foreground.
     const fn foreground_code(&self) -> &'static [u8] {
@@ -106,21 +121,6 @@ impl Color {
             Color::White => "107".as_bytes(),
         }
     }
-}
-
-/// Text color and style.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Style {
-    /// Foreground color.
-    pub foreground_color: Color,
-    /// Background color.
-    pub background_color: Color,
-    /// Bold text.
-    pub bold: bool,
-    /// Underlined text.
-    pub underlined: bool,
-    /// Blinking text.
-    pub blinking: bool,
 }
 
 impl Style {
