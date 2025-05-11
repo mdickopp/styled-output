@@ -59,7 +59,7 @@ pub struct Style {
 
 impl Color {
     /// Returns the ANSI color code if the color is used for the background.
-    fn foreground_code(&self) -> &'static [u8] {
+    const fn foreground_code(&self) -> &'static [u8] {
         match self {
             Color::Default => "39".as_bytes(),
             Color::Black => "30".as_bytes(),
@@ -82,7 +82,7 @@ impl Color {
     }
 
     /// Returns the ANSI color code if the color is used for the background.
-    fn background_code(&self) -> &'static [u8] {
+    const fn background_code(&self) -> &'static [u8] {
         match self {
             Color::Default => "49".as_bytes(),
             Color::Black => "40".as_bytes(),
