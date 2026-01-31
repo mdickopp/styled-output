@@ -1,0 +1,12 @@
+{
+  "[rust]": {
+    "editor.tabSize": 4
+  },
+  "editor.tabSize": 2,
+  "files.associations": {
+    "LICENSE*": "plaintext"
+  },
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true
+}
