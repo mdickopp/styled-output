@@ -11,9 +11,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [lints.rust]
-missing_crate_level_docs = "warn"
 missing_docs = "warn"
-private_doc_tests = "warn"
 
 [lints.clippy]
 allow_attributes = "warn"
@@ -21,8 +19,6 @@ cargo_common_metadata = "warn"
 debug_assert_with_mut_call = "warn"
 doc_paragraphs_missing_punctuation = "warn"
 elidable_lifetime_names = "warn"
-exhaustive_enums = "warn"
-exhaustive_structs = "warn"
 explicit_into_iter_loop = "warn"
 explicit_iter_loop = "warn"
 ignored_unit_patterns = "warn"
@@ -74,3 +70,8 @@ unwrap_used = "warn"
 use_self = "warn"
 used_underscore_binding = "warn"
 used_underscore_items = "warn"
+
+[lints.rustdoc]
+missing_crate_level_docs = "warn"
+private_doc_tests = "warn"
+unescaped_backticks = "warn"
