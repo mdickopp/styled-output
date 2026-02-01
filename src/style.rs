@@ -1,5 +1,9 @@
 //! Text style (color and attributes).
 
+// FIXME: should be pub(crate)
+/// ANSI control sequence that resets all styling.
+pub const RESET_STYLE: &[u8] = b"\x1b[0m";
+
 /// Text color.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub enum Color {
