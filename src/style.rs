@@ -1,11 +1,13 @@
 //! Text style (color and attributes).
 
-// FIXME: should be pub(crate)
+use core::{mem::MaybeUninit, slice};
+
 /// ANSI control sequence that resets all styling.
-pub const RESET_STYLE: &[u8] = b"\x1b[0m";
+pub(crate) const RESET_STYLE: &str = "\x1b[0m";
 
 /// Text color.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[non_exhaustive]
 pub enum Color {
     /// The color that the terminal displays by default.
     #[default]
@@ -66,56 +68,57 @@ impl Color {
     /// Returns the ANSI color code if the color is used for the foreground.
     #[inline]
     #[must_use]
-    const fn foreground_code(self) -> &'static [u8] {
+    const fn foreground_code(self) -> &'static str {
         match self {
-            Self::Default => b"39",
-            Self::Black => b"30",
-            Self::Red => b"31",
-            Self::Green => b"32",
-            Self::Yellow => b"33",
-            Self::Blue => b"34",
-            Self::Magena => b"35",
-            Self::Cyan => b"36",
-            Self::LightGray => b"37",
-            Self::DarkGray => b"90",
-            Self::LightRed => b"91",
-            Self::LightGreen => b"92",
-            Self::LightYellow => b"93",
-            Self::LightBlue => b"94",
-            Self::LightMagenta => b"95",
-            Self::LightCyan => b"96",
-            Self::White => b"97",
+            Self::Default => "39",
+            Self::Black => "30",
+            Self::Red => "31",
+            Self::Green => "32",
+            Self::Yellow => "33",
+            Self::Blue => "34",
+            Self::Magena => "35",
+            Self::Cyan => "36",
+            Self::LightGray => "37",
+            Self::DarkGray => "90",
+            Self::LightRed => "91",
+            Self::LightGreen => "92",
+            Self::LightYellow => "93",
+            Self::LightBlue => "94",
+            Self::LightMagenta => "95",
+            Self::LightCyan => "96",
+            Self::White => "97",
         }
     }
 
     /// Returns the ANSI color code if the color is used for the background.
     #[inline]
     #[must_use]
-    const fn background_code(self) -> &'static [u8] {
+    const fn background_code(self) -> &'static str {
         match self {
-            Self::Default => b"49",
-            Self::Black => b"40",
-            Self::Red => b"41",
-            Self::Green => b"42",
-            Self::Yellow => b"43",
-            Self::Blue => b"44",
-            Self::Magena => b"45",
-            Self::Cyan => b"46",
-            Self::LightGray => b"47",
-            Self::DarkGray => b"100",
-            Self::LightRed => b"101",
-            Self::LightGreen => b"102",
-            Self::LightYellow => b"103",
-            Self::LightBlue => b"104",
-            Self::LightMagenta => b"105",
-            Self::LightCyan => b"106",
-            Self::White => b"107",
+            Self::Default => "49",
+            Self::Black => "40",
+            Self::Red => "41",
+            Self::Green => "42",
+            Self::Yellow => "43",
+            Self::Blue => "44",
+            Self::Magena => "45",
+            Self::Cyan => "46",
+            Self::LightGray => "47",
+            Self::DarkGray => "100",
+            Self::LightRed => "101",
+            Self::LightGreen => "102",
+            Self::LightYellow => "103",
+            Self::LightBlue => "104",
+            Self::LightMagenta => "105",
+            Self::LightCyan => "106",
+            Self::White => "107",
         }
     }
 }
 
 /// Text color and attributes.
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[expect(clippy::exhaustive_structs)]
 pub struct Style {
     /// Foreground color.
     pub foreground_color: Color,
@@ -130,75 +133,89 @@ pub struct Style {
 }
 
 impl Style {
-    // FIXME: should be pub(crate)
+    /// Creates a buffer to be passed to the [`set_style`](Self::set_style) function.
+    #[inline]
+    #[must_use]
+    pub(crate) fn new_set_style_buffer() -> [MaybeUninit<u8>; 15] {
+        [const { MaybeUninit::uninit() }; 15]
+    }
+
     /// Writes the ANSI control sequence that sets this style to the specified buffer and returns a
-    /// subslice containing the control sequence.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `buffer` is too small. It should have a size of at least 15 bytes.
-    pub fn set_style(self, buffer: &mut [u8]) -> &[u8] {
+    /// string containing the control sequence.
+    pub(crate) fn set_style(self, buffer: &mut [MaybeUninit<u8>; 15]) -> &str {
         // Stores the Control Sequence Introducer (CSI) in the buffer if it is empty, otherwise
         // appends a semicolon to the buffer. Updates the number of bytes stored in the buffer.
         #[inline]
-        fn append_prefix(buffer: &mut [u8], n: &mut usize) {
-            if *n == 0 {
-                append_slice(buffer, n, b"\x1b[");
+        fn push_prefix(buffer: &mut [MaybeUninit<u8>; 15], len: &mut usize) {
+            if *len == 0 {
+                push_str(buffer, len, "\x1b[");
             } else {
-                append_byte(buffer, n, b';');
+                push_ascii(buffer, len, b';');
             }
         }
 
-        // Appends a byte to the buffer and updates the number of bytes stored in the buffer.
+        // Appends an ASCII character to the buffer and updates the number of bytes stored in the
+        // buffer.
         #[inline]
-        fn append_byte(buffer: &mut [u8], n: &mut usize, byte: u8) {
-            buffer[*n] = byte;
-            *n += 1;
+        fn push_ascii(buffer: &mut [MaybeUninit<u8>; 15], len: &mut usize, ch: u8) {
+            assert!(ch.is_ascii());
+            buffer[*len].write(ch);
+            *len += 1;
         }
 
-        // Appends a slice to the buffer and updates the number of bytes stored in the buffer.
+        // Appends a string slice to the buffer and updates the number of bytes stored in the
+        // buffer.
         #[inline]
-        fn append_slice(buffer: &mut [u8], n: &mut usize, slice: &[u8]) {
-            let len = slice.len();
-            buffer[*n..*n + len].copy_from_slice(slice);
-            *n += len;
+        fn push_str(buffer: &mut [MaybeUninit<u8>; 15], len: &mut usize, string: &str) {
+            let string_ptr = string.as_bytes().as_ptr();
+            let string_len = string.len();
+            // SAFETY: `string` is reconstructed from its original raw pointer and length, so merely
+            // its type is changed. Furthermore, `MaybeUninit<u8>` is guaranteed to have the same
+            // size, alignment, and ABI as `u8`.
+            let src =
+                unsafe { slice::from_raw_parts(string_ptr as *const MaybeUninit<u8>, string_len) };
+            buffer[*len..*len + string_len].copy_from_slice(src);
+            *len += string_len;
         }
-
-        assert!(buffer.len() >= 15, "buffer too small");
 
         // Number of bytes stored in the buffer.
-        let mut n = 0;
+        let mut len = 0;
 
         if self.foreground_color != Color::Default {
-            append_prefix(buffer, &mut n);
-            append_slice(buffer, &mut n, self.foreground_color.foreground_code());
+            push_prefix(buffer, &mut len);
+            push_str(buffer, &mut len, self.foreground_color.foreground_code());
         }
 
         if self.background_color != Color::Default {
-            append_prefix(buffer, &mut n);
-            append_slice(buffer, &mut n, self.background_color.background_code());
+            push_prefix(buffer, &mut len);
+            push_str(buffer, &mut len, self.background_color.background_code());
         }
 
         if self.bold {
-            append_prefix(buffer, &mut n);
-            append_byte(buffer, &mut n, b'1');
+            push_prefix(buffer, &mut len);
+            push_ascii(buffer, &mut len, b'1');
         }
 
         if self.underlined {
-            append_prefix(buffer, &mut n);
-            append_byte(buffer, &mut n, b'4');
+            push_prefix(buffer, &mut len);
+            push_ascii(buffer, &mut len, b'4');
         }
 
         if self.blinking {
-            append_prefix(buffer, &mut n);
-            append_byte(buffer, &mut n, b'5');
+            push_prefix(buffer, &mut len);
+            push_ascii(buffer, &mut len, b'5');
         }
 
-        if n != 0 {
-            append_byte(buffer, &mut n, b'm');
+        if len != 0 {
+            push_ascii(buffer, &mut len, b'm');
         }
 
-        &buffer[..n]
+        // SAFETY: `len` tracks the number of of bytes stored in the buffer, so all elements in the
+        // resulting slice are initialized.
+        let b = unsafe { slice::from_raw_parts(buffer.as_ptr() as *const u8, len) };
+        // SAFETY: Only ASCII characters and `str` slices have been appended to the buffer.
+        // Therefore, the buffer is guaranteed to contain valid UTF-8.
+        unsafe { str::from_utf8_unchecked(b) }
     }
 }
 
@@ -209,64 +226,76 @@ mod tests {
     #[test]
     fn set_style_default() {
         let style = Style::default();
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert!(buffer.is_empty());
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert!(result.is_empty());
     }
 
     #[test]
     fn set_style_foreground_color() {
-        let mut style = Style::default();
-        style.foreground_color = Color::Yellow;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[33m", buffer);
+        let style = Style {
+            foreground_color: Color::Yellow,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[33m");
     }
 
     #[test]
     fn set_style_background_color() {
-        let mut style = Style::default();
-        style.background_color = Color::LightMagenta;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[105m", buffer);
+        let style = Style {
+            background_color: Color::LightMagenta,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[105m");
     }
 
     #[test]
     fn set_style_foreground_and_background_color() {
-        let mut style = Style::default();
-        style.foreground_color = Color::White;
-        style.background_color = Color::Blue;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[97;44m", buffer);
+        let style = Style {
+            foreground_color: Color::White,
+            background_color: Color::Blue,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[97;44m");
     }
 
     #[test]
     fn set_style_bold() {
-        let mut style = Style::default();
-        style.bold = true;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[1m", buffer);
+        let style = Style {
+            bold: true,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[1m");
     }
 
     #[test]
     fn set_style_underlined() {
-        let mut style = Style::default();
-        style.underlined = true;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[4m", buffer);
+        let style = Style {
+            underlined: true,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[4m");
     }
 
     #[test]
     fn set_style_blinking() {
-        let mut style = Style::default();
-        style.blinking = true;
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[5m", buffer);
+        let style = Style {
+            blinking: true,
+            ..Default::default()
+        };
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[5m");
     }
 
     #[test]
@@ -278,22 +307,8 @@ mod tests {
             underlined: true,
             blinking: true,
         };
-        let mut buffer = [0_u8; 15];
-        let buffer = style.set_style(&mut buffer);
-        assert_eq!(b"\x1b[36;100;1;4;5m", buffer);
-    }
-
-    #[test]
-    #[should_panic(expected = "buffer too small")]
-    fn set_style_buffer_too_small() {
-        let style = Style {
-            foreground_color: Color::Cyan,
-            background_color: Color::DarkGray,
-            bold: true,
-            underlined: true,
-            blinking: true,
-        };
-        let mut buffer = [0_u8; 14];
-        style.set_style(&mut buffer);
+        let mut buffer = Style::new_set_style_buffer();
+        let result = style.set_style(&mut buffer);
+        assert_eq!(result, "\x1b[36;100;1;4;5m");
     }
 }
