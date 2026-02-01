@@ -132,10 +132,10 @@ impl Style {
     ///
     /// # Panics
     ///
-    /// Panics if `buffer` is too small. It should have at least 15 elements.
+    /// Panics if `buffer` is too small. It should have a size of at least 15 bytes.
     pub fn set_style(self, buffer: &mut [u8]) -> &[u8] {
-        let mut n = 0;
-
+        // Stores the Control Sequence Introducer (CSI) in the buffer if it is empty, otherwise
+        // appends a semicolon to the buffer. Updates the number of bytes stored in the buffer.
         #[inline]
         fn append_prefix(buffer: &mut [u8], n: &mut usize) {
             if *n == 0 {
@@ -145,18 +145,25 @@ impl Style {
             }
         }
 
+        // Appends a byte to the buffer and updates the number of bytes stored in the buffer.
         #[inline]
         fn append_byte(buffer: &mut [u8], n: &mut usize, byte: u8) {
             buffer[*n] = byte;
             *n += 1;
         }
 
+        // Appends a slice to the buffer and updates the number of bytes stored in the buffer.
         #[inline]
         fn append_slice(buffer: &mut [u8], n: &mut usize, slice: &[u8]) {
             let len = slice.len();
             buffer[*n..*n + len].copy_from_slice(slice);
             *n += len;
         }
+
+        assert!(buffer.len() >= 15, "buffer too small");
+
+        // Number of bytes stored in the buffer.
+        let mut n = 0;
 
         if self.foreground_color != Color::Default {
             append_prefix(buffer, &mut n);
@@ -273,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
+    #[should_panic(expected = "buffer too small")]
     fn set_style_buffer_too_small() {
         let style = Style {
             foreground_color: Color::Cyan,
